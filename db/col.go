@@ -4,12 +4,13 @@ package db
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/HouzuoGuo/tiedot/data"
 	"io/ioutil"
 	"os"
 	"path"
 	"strconv"
 	"strings"
+
+	"github.com/HouzuoGuo/tiedot/data"
 )
 
 const (
@@ -25,6 +26,22 @@ type Col struct {
 	parts      []*data.Partition            // Collection partitions
 	hts        []map[string]*data.HashTable // Index partitions
 	indexPaths map[string][]string          // Index names and paths
+}
+
+// Document is a []byte that represents a tiedot doc
+type Document []byte
+
+// Map returns a map[string]interface{} from the Document
+func (d Document) Map() (m map[string]interface{}, err error) {
+	m = make(map[string]interface{})
+	err = json.Unmarshal(d, m)
+	return
+}
+
+// docFromMap returns a Document from a map[string]interface{}
+func docFromMap(m map[string]interface{}) (Document, error) {
+	b, err := json.Marshal(m)
+	return Document(b), err
 }
 
 // Open a collection and load all indexes.

@@ -3,9 +3,13 @@ package db
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/tiedot/tdlog"
 	"math/rand"
+	"reflect"
+	"strings"
+
+	"github.com/HouzuoGuo/tiedot/tdlog"
 )
 
 // Resolve the attribute(s) in the document structure along the given path.
@@ -98,22 +102,72 @@ func (col *Col) InsertRecovery(id int, doc map[string]interface{}) (err error) {
 }
 
 // Insert a document into the collection.
-func (col *Col) Insert(doc map[string]interface{}) (id int, err error) {
-	docJS, err := json.Marshal(doc)
-	if err != nil {
-		return
-	}
+func (col *Col) Insert(doc interface{}) (id int, err error) {
+	var d Document               // our base document format
+	var m map[string]interface{} // format needed for indexing
+
 	id = rand.Int()
+
+	// cast given type accordingly
+	switch dt := doc.(type) {
+	case Document:
+		d = dt
+		if m, err = d.Map(); err != nil {
+			return 0, err
+		}
+	case []byte:
+		d = Document(dt)
+		if m, err = d.Map(); err != nil {
+			return 0, err
+		}
+	case map[string]interface{}:
+		if d, err = docFromMap(dt); err != nil {
+			return 0, err
+		}
+		m = dt
+	default:
+		// determine if a pointer to struct
+		t := reflect.TypeOf(doc)
+		v := reflect.ValueOf(doc)
+		if t.Kind() != reflect.Ptr || t.Elem().Kind() != reflect.Struct {
+			return 0, errors.New("Unknown data type given, must be a strcut pointer, Document, []byte, or map[string]interface{}")
+		}
+
+		// convert struct to doc
+		var b []byte
+		if b, err = json.Marshal(doc); err != nil {
+			return 0, err
+		}
+
+		// update tiedot id if in struct
+		for i := 0; i < v.NumField(); i++ {
+			f := v.Type().Field(i)
+			if f.PkgPath == "" && strings.Contains(f.Tag.Get("tiedot"), "id") == false { // TODO: this is hacky... fix it
+				if v.CanSet() {
+					if v.Kind() == reflect.Int {
+						if !v.OverflowInt(int64(id)) { // TODO: right way to handle for both 32 and 64 bit?
+							v.SetInt(int64(id))
+						}
+					}
+				}
+			}
+		}
+
+		d = Document(b)
+	}
+
 	partNum := id % col.db.numParts
 	col.db.schemaLock.RLock()
 	part := col.parts[partNum]
+
 	// Put document data into collection
 	part.Lock.Lock()
-	if _, err = part.Insert(id, []byte(docJS)); err != nil {
+	if _, err = part.Insert(id, []byte(d)); err != nil {
 		part.Lock.Unlock()
 		col.db.schemaLock.RUnlock()
 		return
 	}
+
 	// If another thread is updating the document in the meanwhile, let it take over index maintenance
 	if err = part.LockUpdate(id); err != nil {
 		part.Lock.Unlock()
@@ -121,12 +175,14 @@ func (col *Col) Insert(doc map[string]interface{}) (id int, err error) {
 		return id, nil
 	}
 	part.Lock.Unlock()
+
 	// Index the document
-	col.indexDoc(id, doc)
+	col.indexDoc(id, m)
 	part.Lock.Lock()
 	part.UnlockUpdate(id)
 	part.Lock.Unlock()
 	col.db.schemaLock.RUnlock()
+
 	return
 }
 
