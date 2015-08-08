@@ -1,3 +1,7 @@
+### DEVELOPMENT BRANCH
+
+This branch represents my "pipe dream" of embedded usage. It will contain radical experimental refactors targeted to make things better for embedded users of tiedot. The features of this branch will be carefully reviewed before considered for migration to the official tiedot repo and master.
+
 Keywords: Golang, go, document database, NoSQL, JSON
 
 <img src="http://golang.org/doc/gopher/frontpage.png" alt="Golang logo" align="right"/>
