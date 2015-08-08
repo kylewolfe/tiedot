@@ -4,7 +4,6 @@ package db
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/HouzuoGuo/tiedot/tdlog"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -16,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/HouzuoGuo/tiedot/tdlog"
 )
 
 const (

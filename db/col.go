@@ -4,12 +4,13 @@ package db
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/HouzuoGuo/tiedot/data"
 	"io/ioutil"
 	"os"
 	"path"
 	"strconv"
 	"strings"
+
+	data "github.com/HouzuoGuo/tiedot"
 )
 
 const (
